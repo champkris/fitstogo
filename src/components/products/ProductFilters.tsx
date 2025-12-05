@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
+import { cn } from '@/lib/utils';
 import type { Platform } from '@/types';
 
 interface FilterState {
@@ -13,6 +14,13 @@ interface FilterState {
   maxPrice: string;
   sort: string;
 }
+
+const platformTabs = [
+  { value: '', label: 'All', color: 'bg-gray-100 text-gray-700 hover:bg-gray-200' },
+  { value: 'SHOPEE', label: 'Shopee', color: 'bg-orange-500 text-white hover:bg-orange-600' },
+  { value: 'LAZADA', label: 'Lazada', color: 'bg-blue-600 text-white hover:bg-blue-700' },
+  { value: 'TIKTOK', label: 'TikTok', color: 'bg-black text-white hover:bg-gray-800' },
+];
 
 export default function ProductFilters() {
   const router = useRouter();
@@ -54,8 +62,40 @@ export default function ProductFilters() {
     setShowFilters(false);
   };
 
+  const handlePlatformChange = (platform: Platform | '') => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (platform) {
+      params.set('platform', platform);
+    } else {
+      params.delete('platform');
+    }
+    params.delete('page'); // Reset to first page
+    router.push(`/products?${params.toString()}`);
+  };
+
   return (
     <div className="mb-6">
+      {/* Platform Tabs */}
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+        {platformTabs.map((tab) => {
+          const isActive = filters.platform === tab.value;
+          return (
+            <button
+              key={tab.value}
+              onClick={() => handlePlatformChange(tab.value as Platform | '')}
+              className={cn(
+                'px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap',
+                isActive
+                  ? tab.color
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              )}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Search Bar */}
       <form onSubmit={handleSearch} className="flex gap-2 mb-4">
         <div className="relative flex-1">
@@ -105,8 +145,9 @@ export default function ProductFilters() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-200"
               >
                 <option value="">All Platforms</option>
-                <option value="LAZADA">Lazada</option>
                 <option value="SHOPEE">Shopee</option>
+                <option value="LAZADA">Lazada</option>
+                <option value="TIKTOK">TikTok</option>
               </select>
             </div>
 

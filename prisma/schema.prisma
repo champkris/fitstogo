@@ -81,6 +81,7 @@ model Category {
 enum Platform {
   LAZADA
   SHOPEE
+  TIKTOK
 }
 
 model Product {
@@ -106,6 +107,7 @@ model Product {
   updatedAt      DateTime      @updatedAt
 
   sizes         ProductSize[]
+  variants      ProductVariant[]
   tryOnSessions TryOnSession[]
   clicks        ClickTracking[]
 
@@ -120,11 +122,29 @@ model ProductSize {
   productId    String
   product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   size         String
+  inStock      Boolean @default(true)
   stockStatus  String  @default("in_stock")
   measurements Json?
 
   @@unique([productId, size])
   @@map("product_sizes")
+}
+
+model ProductVariant {
+  id           String   @id @default(cuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  externalId   String?  // Shopee model_id
+  name         String   // Full variant name (e.g., "สีขาว,M")
+  color        String?  // Extracted color
+  size         String?  // Extracted size
+  price        Decimal  @db.Decimal(10, 2)
+  imageUrl     String?  @db.VarChar(1000)
+  inStock      Boolean  @default(true)
+
+  @@unique([productId, externalId])
+  @@index([productId])
+  @@map("product_variants")
 }
 
 enum PhotoType {

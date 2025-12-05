@@ -1,8 +1,8 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Star, ExternalLink, Sparkles, ChevronRight } from 'lucide-react';
 import { Button, Card } from '@/components/ui';
+import ProductImageGallery from '@/components/products/ProductImageGallery';
 import { formatPrice, getDiscountPercentage } from '@/lib/utils';
 import prisma from '@/lib/prisma';
 
@@ -67,36 +67,7 @@ export default async function ProductDetailPage({ params }: Props) {
 
       <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
         {/* Images */}
-        <div>
-          <div className="aspect-[3/4] rounded-xl overflow-hidden bg-gray-100 mb-4">
-            <Image
-              src={product.imageUrl}
-              alt={product.title}
-              width={600}
-              height={800}
-              className="w-full h-full object-cover"
-              priority
-            />
-          </div>
-          {allImages.length > 1 && (
-            <div className="grid grid-cols-4 gap-2">
-              {allImages.slice(0, 4).map((img, i) => (
-                <div
-                  key={i}
-                  className="aspect-square rounded-lg overflow-hidden bg-gray-100"
-                >
-                  <Image
-                    src={img}
-                    alt={`${product.title} - ${i + 1}`}
-                    width={150}
-                    height={150}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <ProductImageGallery images={allImages} title={product.title} />
 
         {/* Product Info */}
         <div>

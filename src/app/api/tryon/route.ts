@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { generateTryOn, isKieAiConfigured } from '@/lib/kie-ai';
+import { describeClothing, isGLMConfigured } from '@/lib/glm';
 
 export async function GET(request: NextRequest) {
   try {
@@ -51,7 +53,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { productId, userPhotoId } = await request.json();
+    const { productId, userPhotoId, garmentImageUrl, maskRegion } = await request.json();
 
     if (!productId || !userPhotoId) {
       return NextResponse.json(
@@ -111,7 +113,7 @@ export async function POST(request: NextRequest) {
         userId: session.user.id,
         productId,
         userPhotoId,
-        status: 'PENDING',
+        status: 'PROCESSING',
       },
       include: {
         product: {
@@ -125,30 +127,63 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // TODO: Trigger AI processing (queue job for Gemini API)
-    // For now, simulate processing
-    setTimeout(async () => {
-      try {
-        // In production, this would call Google Gemini Nano API
-        // and generate the actual try-on result
-        await prisma.tryOnSession.update({
-          where: { id: tryOnSession.id },
-          data: {
-            status: 'COMPLETED',
-            resultUrl: product.imageUrl, // Placeholder - would be actual result
-          },
-        });
-      } catch (error) {
-        console.error('TryOn processing error:', error);
-        await prisma.tryOnSession.update({
-          where: { id: tryOnSession.id },
-          data: {
-            status: 'FAILED',
-            errorMsg: 'Processing failed',
-          },
-        });
-      }
-    }, 3000);
+    // Use custom garment image URL if provided, otherwise use product's main image
+    const finalGarmentUrl = garmentImageUrl || product.imageUrl;
+
+    // Process with Kie.ai
+    if (isKieAiConfigured()) {
+      // Run async - don't await to return response quickly
+      (async () => {
+        try {
+          // First, get clothing description from GLM if configured
+          let clothingDescription: string | undefined;
+          if (isGLMConfigured()) {
+            console.log('Getting clothing description from GLM...');
+            clothingDescription = await describeClothing(finalGarmentUrl);
+            console.log('Clothing description:', clothingDescription);
+          }
+
+          // Then generate try-on with the description and mask region
+          const result = await generateTryOn(photo.photoUrl, finalGarmentUrl, clothingDescription, maskRegion);
+
+          if (result.success && result.imageUrl) {
+            await prisma.tryOnSession.update({
+              where: { id: tryOnSession.id },
+              data: {
+                status: 'COMPLETED',
+                resultUrl: result.imageUrl,
+              },
+            });
+          } else {
+            await prisma.tryOnSession.update({
+              where: { id: tryOnSession.id },
+              data: {
+                status: 'FAILED',
+                errorMsg: result.error || 'AI processing failed',
+              },
+            });
+          }
+        } catch (error) {
+          console.error('Kie.ai try-on error:', error);
+          await prisma.tryOnSession.update({
+            where: { id: tryOnSession.id },
+            data: {
+              status: 'FAILED',
+              errorMsg: error instanceof Error ? error.message : 'Processing failed',
+            },
+          });
+        }
+      })();
+    } else {
+      // Fallback: just show product image if Kie.ai not configured
+      await prisma.tryOnSession.update({
+        where: { id: tryOnSession.id },
+        data: {
+          status: 'COMPLETED',
+          resultUrl: product.imageUrl,
+        },
+      });
+    }
 
     return NextResponse.json(tryOnSession, { status: 201 });
   } catch (error) {

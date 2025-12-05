@@ -14,6 +14,14 @@ const nextConfig = {
         protocol: 'https',
         hostname: '*.digitaloceanspaces.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'cf.shopee.co.th',
+      },
+      {
+        protocol: 'https',
+        hostname: 'tempfile.aiquickdraw.com',
+      },
     ],
   },
   experimental: {

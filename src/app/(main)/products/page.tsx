@@ -113,7 +113,10 @@ export default async function ProductsPage({
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Browse Products</h1>
         <p className="text-gray-600 mt-2">
-          {total} products from Lazada and Shopee
+          {total.toLocaleString()} products
+          {searchParams.platform
+            ? ` from ${searchParams.platform.charAt(0) + searchParams.platform.slice(1).toLowerCase()}`
+            : ' from Shopee, Lazada & TikTok'}
         </p>
       </div>
 

@@ -4,13 +4,15 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Sparkles, ArrowLeft } from 'lucide-react';
+import { Sparkles, ArrowLeft, AlertCircle } from 'lucide-react';
 import { Button, Card, Modal } from '@/components/ui';
 import {
   PhotoUploader,
   PhotoSelector,
   TryOnCanvas,
   ResultViewer,
+  GarmentSelector,
+  type MaskRegion,
 } from '@/components/tryon';
 import type { UserPhoto, TryOnResult, ProductDetail } from '@/types';
 
@@ -26,6 +28,9 @@ function TryOnContent() {
   const [result, setResult] = useState<TryOnResult | null>(null);
   const [history, setHistory] = useState<TryOnResult[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedGarmentImage, setSelectedGarmentImage] = useState<string | null>(null);
+  const [garmentMaskRegion, setGarmentMaskRegion] = useState<MaskRegion | undefined>(undefined);
 
   useEffect(() => {
     if (session?.user) {
@@ -100,11 +105,17 @@ function TryOnContent() {
     }
   };
 
+  const handleGarmentSelect = (imageUrl: string, maskRegion?: MaskRegion) => {
+    setSelectedGarmentImage(imageUrl);
+    setGarmentMaskRegion(maskRegion);
+  };
+
   const handleTryOn = async () => {
     if (!selectedPhotoId || !product) return;
 
     setIsProcessing(true);
     setResult(null);
+    setError(null);
 
     try {
       const res = await fetch('/api/tryon', {
@@ -113,6 +124,8 @@ function TryOnContent() {
         body: JSON.stringify({
           productId: product.id,
           userPhotoId: selectedPhotoId,
+          garmentImageUrl: selectedGarmentImage || product.imageUrl,
+          maskRegion: garmentMaskRegion,
         }),
       });
 
@@ -120,9 +133,14 @@ function TryOnContent() {
         const data = await res.json();
         // Poll for result
         pollForResult(data.id);
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Failed to generate try-on');
+        setIsProcessing(false);
       }
     } catch (error) {
       console.error('Try-on failed:', error);
+      setError('Something went wrong. Please try again.');
       setIsProcessing(false);
     }
   };
@@ -216,6 +234,30 @@ function TryOnContent() {
         )}
       </div>
 
+      {/* Error Notification */}
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-red-800 font-medium">{error}</p>
+            {error.includes('limit') && (
+              <p className="text-red-600 text-sm mt-1">
+                <Link href="/pricing" className="underline hover:no-underline">
+                  Upgrade your plan
+                </Link>{' '}
+                for more try-ons per month.
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-600"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Try-On Canvas */}
         <div>
@@ -261,38 +303,29 @@ function TryOnContent() {
             </div>
           </Card>
 
-          {/* Product Info */}
+          {/* Product / Garment Selection */}
           {product ? (
             <Card>
               <div className="p-4">
-                <h3 className="font-semibold text-gray-900 mb-3">
-                  Selected Product
-                </h3>
-                <div className="flex gap-4">
-                  <div className="w-20 h-24 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                    <img
-                      src={product.imageUrl}
-                      alt={product.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 line-clamp-2">
-                      {product.title}
-                    </p>
-                    <p className="text-primary-600 font-semibold mt-1">
-                      {new Intl.NumberFormat('th-TH', {
-                        style: 'currency',
-                        currency: 'THB',
-                      }).format(product.price)}
-                    </p>
-                  </div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-900">
+                    Select Garment Image
+                  </h3>
+                  <Link href="/products">
+                    <Button variant="ghost" size="sm">
+                      Change Product
+                    </Button>
+                  </Link>
                 </div>
-                <Link href="/products">
-                  <Button variant="outline" size="sm" className="w-full mt-4">
-                    Change Product
-                  </Button>
-                </Link>
+                <p className="text-sm text-gray-600 mb-3 line-clamp-1">
+                  {product.title}
+                </p>
+                <GarmentSelector
+                  images={[product.imageUrl, ...(product.images || [])]}
+                  title={product.title}
+                  selectedImageUrl={selectedGarmentImage || product.imageUrl}
+                  onSelect={handleGarmentSelect}
+                />
               </div>
             </Card>
           ) : (
