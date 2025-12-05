@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Upload, Camera, X, User } from 'lucide-react';
+import { Upload, X, User, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +18,8 @@ export default function PhotoUploader({
 }: PhotoUploaderProps) {
   const [dragActive, setDragActive] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentPhotoUrl || null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -47,7 +49,7 @@ export default function PhotoUploader({
     }
   };
 
-  const handleFile = async (file: File) => {
+  const handleFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
       alert('Please upload an image file');
       return;
@@ -63,12 +65,26 @@ export default function PhotoUploader({
       setPreview(reader.result as string);
     };
     reader.readAsDataURL(file);
+    setSelectedFile(file);
+  };
 
-    await onUpload(file);
+  const handleSubmit = async () => {
+    if (!selectedFile) return;
+
+    setUploading(true);
+    try {
+      await onUpload(selectedFile);
+      setSelectedFile(null);
+    } catch (error) {
+      console.error('Upload failed:', error);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const clearPreview = () => {
     setPreview(null);
+    setSelectedFile(null);
     if (inputRef.current) {
       inputRef.current.value = '';
     }
@@ -77,20 +93,52 @@ export default function PhotoUploader({
   return (
     <div className="w-full">
       {preview ? (
-        <div className="relative">
-          <div className="aspect-[3/4] rounded-xl overflow-hidden bg-gray-100">
-            <img
-              src={preview}
-              alt="Preview"
-              className="w-full h-full object-cover"
-            />
+        <div className="space-y-4">
+          <div className="relative">
+            <div className="aspect-[3/4] rounded-xl overflow-hidden bg-gray-100">
+              <img
+                src={preview}
+                alt="Preview"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <button
+              onClick={clearPreview}
+              disabled={uploading}
+              className="absolute top-2 right-2 bg-white/90 p-1.5 rounded-full shadow-md hover:bg-white disabled:opacity-50"
+            >
+              <X className="w-4 h-4 text-gray-600" />
+            </button>
           </div>
-          <button
-            onClick={clearPreview}
-            className="absolute top-2 right-2 bg-white/90 p-1.5 rounded-full shadow-md hover:bg-white"
-          >
-            <X className="w-4 h-4 text-gray-600" />
-          </button>
+
+          {selectedFile && (
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSubmit}
+                disabled={uploading}
+                className="flex-1"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Photo
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={clearPreview}
+                disabled={uploading}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         <div
