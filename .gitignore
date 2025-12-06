@@ -53,3 +53,6 @@ logs
 
 # Local uploads
 public/uploads
+
+# Documentation (large files)
+/docs/shopee
